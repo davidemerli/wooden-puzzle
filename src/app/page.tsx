@@ -1,98 +1,89 @@
-"use client";
-import * as THREE from 'three'
-import React, { useRef, useState } from 'react'
-import { Canvas, useFrame, ThreeElements, GroupProps } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
+"use client"
 
-// Block component
-const Block = React.forwardRef(({ position, color = 'orange' }: {
-  position: [number, number, number], color?: string
-}, ref: React.Ref<THREE.Mesh>) => {
-  return (
-    <mesh position={position} ref={ref} scale={0.95}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color={color} />
-    </mesh>
-  );
-});
+import React, { useRef } from 'react';
+import * as THREE from 'three';
+import { Canvas, GroupProps, useFrame, useThree } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
+import blocksConfig from './blocksConfig.json'; // Adjust the path as necessary
+import { randInt } from 'three/src/math/MathUtils.js';
 
-// Group component
-const BlockGroup = ({ rotationAxis, rotate = false, children, ...props }: GroupProps & {
+const Block = ({ color, position }: { color: string; position: [number, number, number] }) => (
+  <mesh position={position} scale={0.95}>
+    <boxGeometry args={[1, 1, 1]} />
+    <meshStandardMaterial color={color} />
+  </mesh>
+);
+
+const BlockGroup = ({ isFirst = false, rotationAxis, rotate = false, children, ...props }: GroupProps & {
   rotationAxis?: 'x' | 'y' | 'z',
-  rotate?: boolean
+  rotate?: boolean,
+  isFirst?: boolean,
 }) => {
   const groupRef = useRef<THREE.Group>(null!);
 
   // This function will handle the rotation of the entire group
   useFrame(() => {
+    const randomRotation = ([0, 1, 2, 3][randInt(0, 4)] * Math.PI / 2)
+
+    const rotation = [
+      rotationAxis === 'x' ? randomRotation : 0,
+      rotationAxis === 'y' ? randomRotation : 0,
+      rotationAxis === 'z' ? randomRotation : 0,
+    ] as [number, number, number]
+
     if (rotate && groupRef.current) {
-      groupRef.current.rotation.x += rotationAxis === 'x' ? 0.01 : 0;
-      groupRef.current.rotation.y += rotationAxis === 'y' ? 0.01 : 0;
-      groupRef.current.rotation.z += rotationAxis === 'z' ? 0.01 : 0;
+      groupRef.current.rotation.set(...rotation);
+    }
+
+    // get bounding box
+    if (isFirst && groupRef.current) {
+      console.log(new THREE.Box3().setFromObject(groupRef.current).max);
     }
   });
 
   return <group ref={groupRef} {...props}>{children}</group>;
 };
 
+const RenderBlocks = ({ isFirst = true, config, }: { isFirst: boolean, config: any }) => {
+  const [setup, children] = config;
+  let [type, x, y, z, rotationAxis = null] = setup.split("");
+  const color = type === "B" ? "blue" : "red";
+
+  if (type === "B") {
+    return <Block position={[x, -y, z]} color={color} />;
+  } else if (type === "G") {
+    return (
+      <BlockGroup isFirst={isFirst} position={[x, -y, z]} rotationAxis={rotationAxis}>
+        <Block position={[0, 0, 0]} color={color} />;
+
+        {children.map((childConfig: any, index: number) => (
+          <RenderBlocks key={index} isFirst={false} config={childConfig} />
+        ))}
+      </BlockGroup>
+    );
+  }
+  return null;
+};
 
 export default function Home() {
-
   return (
     <main className='bg-red-200 flex items-center justify-center h-screen'>
       <Canvas>
-        <ambientLight />
-        <pointLight position={[10, 10, 10]} intensity={0.5} />
-
-        <OrbitControls />
-
-        <BlockGroup>
-          <Block color={'red'} position={[0, 0, 0]} />
-          <Block color={'red'} position={[0, -1, 0]} />
-          <BlockGroup position={[0, -2, 0]} rotationAxis={'y'}>
-            <Block color={'red'} position={[0, 0, 0]} />
-            <BlockGroup position={[1, 0, 0]} rotationAxis={'x'}>
-              <Block color={'blue'} position={[0, 0, 0]} />
-              <Block color={'blue'} position={[0, -1, 0]} />
-              <BlockGroup position={[0, -2, 0]} rotationAxis={'y'}>
-                <Block color={'blue'} position={[0, 0, 0]} />
-                <BlockGroup position={[1, 0, 0]} rotationAxis={'x'}>
-                  <Block color={'yellow'} position={[0, 0, 0]} />
-                  <BlockGroup position={[0, -1, 0]} rotationAxis={'y'}>
-                    <Block color={'yellow'} position={[0, 0, 0]} />
-                    <BlockGroup position={[1, 0, 0]} rotationAxis={'x'}>
-                      <Block color={'green'} position={[0, 0, 0]} />
-                      <Block color={'green'} position={[1, 0, 0]} />
-                      <BlockGroup position={[2, 0, 0]} rotationAxis={'x'}>
-                        <Block color={'green'} position={[0, 0, 0]} />
-                        <BlockGroup position={[0, -1, 0]} rotationAxis={'y'}>
-                          <Block color={'red'} position={[0, 0, 0]} />
-                          <Block color={'red'} position={[1, 0, 0]} />
-                          <BlockGroup position={[2, 0, 0]} rotationAxis={'x'}>
-                            <Block color={'red'} position={[0, 0, 0]} />
-                            <BlockGroup position={[0, -1, 0]} rotationAxis={'y'}>
-                              <Block color={'blue'} position={[0, 0, 0]} />
-                              <BlockGroup position={[1, 0, 0]} rotationAxis={'x'}>
-                                <Block color={'blue'} position={[0, 0, 0]} />
-                                <Block color={'blue'} position={[1, 0, 0]} />
-                                <BlockGroup position={[1, -1, 0]} rotationAxis={'y'} rotate>
-                                  <Block color={'yellow'} position={[0, 0, 0]} />
-
-                                </BlockGroup>
-                              </BlockGroup>
-                            </BlockGroup>
-                          </BlockGroup>
-                        </BlockGroup>
-                      </BlockGroup>
-                    </BlockGroup>
-                  </BlockGroup>
-                </BlockGroup>
-              </BlockGroup>
-            </BlockGroup>
-          </BlockGroup>
-        </BlockGroup>
+        <Stuff />
       </Canvas>
-
     </main >
   );
+}
+
+const Stuff = () => {
+  useThree(({ camera }) => {
+    camera.position.set(0, 0, 50);
+  });
+
+  return <>
+    <ambientLight />
+    <pointLight position={[10, 10, 10]} intensity={0.5} />
+    <OrbitControls />
+    <RenderBlocks isFirst={true} config={blocksConfig} />
+  </ >
 }
